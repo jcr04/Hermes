@@ -1,4 +1,5 @@
 import logging
+from datetime import datetime
 from flask import Blueprint, jsonify, request
 from app.services.external_service import (
     get_all_agencias,
@@ -42,13 +43,35 @@ def evaluate_or_train():
                 logging.debug(f"Agência não encontrada: agenciaNome={agencia_nome}")
                 continue
 
+            # Regras adicionais
+            # Converter strings de data para objetos datetime
+            data_inicio = aluguel.get("dataInicio")
+            data_fim = aluguel.get("dataFim")
+
+            if data_inicio and data_fim:
+                try:
+                    data_inicio = datetime.strptime(data_inicio, "%Y-%m-%dT%H:%M:%S.%fZ")
+                    data_fim = datetime.strptime(data_fim, "%Y-%m-%dT%H:%M:%S.%fZ")
+                    duracao_dias = (data_fim - data_inicio).days
+                except ValueError:
+                    logging.debug(f"Formato de data inválido: dataInicio={data_inicio}, dataFim={data_fim}")
+                    duracao_dias = 0
+            else:
+                duracao_dias = 0
+
+            # Outros valores do aluguel
+            valor_aluguel = aluguel.get("valor", 0)
+            status_aluguel = aluguel.get("status")
+            adaptado_para_pcd = veiculo.get("adaptadoParaPCD", False)
+
             # Criar a entrada consolidada
             entry = {
                 "id": aluguel.get("id", "N/A"),
                 "features": [
-                    1 if aluguel.get("status") == "Ativo" else 0,
-                    1 if veiculo.get("adaptadoParaPCD", False) else 0,
-                    aluguel.get("valor", 0)
+                    1 if status_aluguel == "Ativo" else 0,  # Status
+                    1 if adaptado_para_pcd else 0,           # Adaptado para PCD
+                    valor_aluguel,                           # Valor do aluguel
+                    duracao_dias                             # Duração do aluguel em dias
                 ],
                 "agencia": agencia_nome,
                 "veiculo": veiculo_dados
@@ -56,7 +79,8 @@ def evaluate_or_train():
 
             # Adicionar rótulo para treinamento, se necessário
             if train:
-                entry["label"] = 1 if aluguel.get("status") == "Ativo" else 0
+                # Regra de rotulagem para treinamento
+                entry["label"] = 1 if (status_aluguel == "Ativo" and duracao_dias > 1 and valor_aluguel < 5000) else 0
 
             consolidated_data.append(entry)
 

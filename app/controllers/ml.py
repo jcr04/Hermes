@@ -11,14 +11,24 @@ def process_ml():
         train = payload.get("train", False)
 
         if train:
-            # Dados para treinamento devem incluir features e labels
-            training_data = [(entry["features"], entry["label"]) for entry in data]
+            # Validação de dados para treinamento
+            training_data = []
+            for entry in data:
+                if "features" in entry and "label" in entry:
+                    training_data.append((entry["features"], entry["label"]))
+
+            if not training_data:
+                return jsonify({"error": "Dados insuficientes para treinamento."}), 400
+
             train_model_with_data(training_data)
             return jsonify({"message": "Modelo treinado com sucesso!"}), 200
 
         else:
-            # Dados para previsão devem incluir apenas features
-            features = [entry["features"] for entry in data]
+            # Validação de dados para previsão
+            features = [entry["features"] for entry in data if "features" in entry]
+            if not features:
+                return jsonify({"error": "Dados insuficientes para previsão."}), 400
+
             predictions = predict_eligibility(features)
 
             results = []

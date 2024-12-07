@@ -1,5 +1,7 @@
 import numpy as np
 from sklearn.ensemble import RandomForestClassifier
+from sklearn.model_selection import train_test_split
+from sklearn.metrics import classification_report
 import pickle
 import os
 
@@ -23,8 +25,22 @@ def train_model_with_data(data):
     X = np.array(X)
     y = np.array(y)
     
-    model = RandomForestClassifier(n_estimators=100, random_state=42)
-    model.fit(X, y)
+    # Divisão dos dados em treinamento e validação
+    X_train, X_val, y_train, y_val = train_test_split(X, y, test_size=0.2, random_state=42)
+
+    # Configuração e treinamento do modelo
+    model = RandomForestClassifier(
+        n_estimators=200,  # Aumentar o número de árvores para maior precisão
+        max_depth=10,      # Limitar a profundidade para evitar overfitting
+        random_state=42
+    )
+    model.fit(X_train, y_train)
+
+    # Avaliação do modelo
+    y_pred = model.predict(X_val)
+    report = classification_report(y_val, y_pred, output_dict=True)
+    print("Relatório de Classificação:", report)
+
 
     # Salvar o modelo treinado
     os.makedirs('./models', exist_ok=True)
